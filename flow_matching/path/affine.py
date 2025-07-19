@@ -72,6 +72,8 @@ class AffineProbPath(ProbPath):
 
         scheduler_output = self.scheduler(t)
 
+        breakpoint()
+
         alpha_t = expand_tensor_like(
             input_tensor=scheduler_output.alpha_t, expand_to=x_1
         )
