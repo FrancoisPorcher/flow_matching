@@ -19,6 +19,7 @@ import torch.backends.cudnn as cudnn
 import torchvision.datasets as datasets
 from models.model_configs import instantiate_model
 from train_arg_parser import get_args_parser
+from utils.logging import TrainLogger
 
 from training import distributed_mode
 from training.data_transform import get_train_transform
@@ -48,6 +49,16 @@ def main(args):
             json.dump(vars(args), f)
 
     device = torch.device(args.device)
+
+    train_logger = TrainLogger(
+        log_dir=Path(args.output_dir),
+        rank=distributed_mode.get_rank(),
+        enable_wandb=args.enable_wandb,
+        project=args.wandb_project,
+        entity=args.wandb_entity,
+        group=args.wandb_group,
+    )
+    train_logger.log_devices(device=device, logger=logger)
 
     # fix the seed for reproducibility
     seed = args.seed + distributed_mode.get_rank()
@@ -181,6 +192,22 @@ def main(args):
                 epoch=epoch,
                 loss_scaler=loss_scaler,
                 args=args,
+                logger=train_logger,
+            )
+            train_logger.log_metric(
+                value=train_stats["loss"],
+                name="Loss",
+                stage="Train",
+                step=epoch,
+            )
+            train_logger.log_metric(
+                value=train_stats["grad_norm"],
+                name="GradNorm",
+                stage="Train",
+                step=epoch,
+            )
+            train_logger.log_lr(
+                value=optimizer.param_groups[0]["lr"], step=epoch
             )
             log_stats = {
                 **{f"train_{k}": v for k, v in train_stats.items()},
@@ -222,6 +249,13 @@ def main(args):
                 fid_samples=fid_samples,
                 args=args,
             )
+            if "fid" in eval_stats:
+                train_logger.log_metric(
+                    value=eval_stats["fid"],
+                    name="FID",
+                    stage="Evaluation",
+                    step=epoch,
+                )
             log_stats.update({f"eval_{k}": v for k, v in eval_stats.items()})
 
         if args.output_dir and distributed_mode.is_main_process():
@@ -237,6 +271,13 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info(f"Training time {total_time_str}")
+    train_logger.log_metric(
+        value=total_time,
+        name="Time",
+        stage="Train",
+        step=args.epochs,
+    )
+    train_logger.finish()
 
 
 if __name__ == "__main__":

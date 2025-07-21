@@ -16,8 +16,7 @@ from models.ema import EMA
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics.aggregation import MeanMetric
 from training.grad_scaler import NativeScalerWithGradNormCount
-
-logger = logging.getLogger(__name__)
+from utils.logging import TrainLogger
 
 MASK_TOKEN = 256
 PRINT_FREQUENCY = 50
@@ -42,11 +41,13 @@ def train_one_epoch(
     epoch: int,
     loss_scaler: NativeScalerWithGradNormCount,
     args: argparse.Namespace,
+    logger: "TrainLogger",
 ):
     gc.collect()
     model.train(True)
     batch_loss = MeanMetric().to(device, non_blocking=True)
     epoch_loss = MeanMetric().to(device, non_blocking=True)
+    grad_norm_metric = MeanMetric().to(device, non_blocking=True)
 
     accum_iter = args.accum_iter
     if args.discrete_flow_matching:
@@ -112,12 +113,15 @@ def train_one_epoch(
         # Loss scaler applies the optimizer when update_grad is set to true.
         # Otherwise just updates the internal gradient scales
         apply_update = (data_iter_step + 1) % accum_iter == 0
-        loss_scaler(
+        grad_norm = loss_scaler(
             loss,
             optimizer,
             parameters=model.parameters(),
             update_grad=apply_update,
         )
+        if apply_update and grad_norm is not None:
+            grad_norm_metric.update(grad_norm)
+
         if apply_update and isinstance(model, EMA):
             model.update_ema()
         elif (
@@ -128,10 +132,18 @@ def train_one_epoch(
             model.module.update_ema()
 
         lr = optimizer.param_groups[0]["lr"]
+        global_step = epoch * len(data_loader) + data_iter_step
+        if apply_update:
+            logger.log_lr(value=lr, step=global_step)
+
         if data_iter_step % PRINT_FREQUENCY == 0:
             logger.info(
                 f"Epoch {epoch} [{data_iter_step}/{len(data_loader)}]: loss = {batch_loss.compute()}, lr = {lr}"
             )
 
     lr_schedule.step()
-    return {"loss": float(epoch_loss.compute().detach().cpu())}
+    grad_norm_epoch = grad_norm_metric.compute()
+    return {
+        "loss": float(epoch_loss.compute().detach().cpu()),
+        "grad_norm": float(grad_norm_epoch.detach().cpu()),
+    }

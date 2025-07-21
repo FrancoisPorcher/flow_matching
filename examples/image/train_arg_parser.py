@@ -203,4 +203,29 @@ def get_args_parser():
         help="Number of sampling steps for discrete FM.",
     )
 
+    # Logging parameters
+    parser.add_argument(
+        "--enable_wandb",
+        action="store_true",
+        help="Enable logging to Weights & Biases",
+    )
+    parser.add_argument(
+        "--wandb_project",
+        default="flow_matching",
+        type=str,
+        help="WandB project name",
+    )
+    parser.add_argument(
+        "--wandb_entity",
+        default=None,
+        type=str,
+        help="WandB entity (user or team)",
+    )
+    parser.add_argument(
+        "--wandb_group",
+        default=None,
+        type=str,
+        help="WandB group name",
+    )
+
     return parser

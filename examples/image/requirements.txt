@@ -1,3 +1,4 @@
 submitit
 torchmetrics[image]
 torchvision
+wandb

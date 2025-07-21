@@ -27,6 +27,12 @@ cd examples/image
 pip install -r requirements.txt
 ```
 
+To monitor training with [Weights & Biases](https://wandb.ai) enable the
+`--enable_wandb` flag when launching `train.py` or `submitit_train.py`. Optional
+arguments `--wandb_project`, `--wandb_entity` and `--wandb_group` control the
+destination project, entity and group.
+
+
 4. [Optional] Test-run training locally. A test run executes one step of training followed by one step of evaluation.
 
 ```
