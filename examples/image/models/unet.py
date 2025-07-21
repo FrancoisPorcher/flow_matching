@@ -36,6 +36,7 @@ class ConstantEmbedding(nn.Module):
         )
 
     def forward(self, emb):
+        breakpoint()
         return self.embedding_table.repeat(emb.shape[0], 1)
 
 
@@ -224,9 +225,11 @@ class ResBlock(TimestepBlock):
                 nn.SiLU(),
                 linear(
                     emb_channels,
-                    2 * self.out_channels
-                    if use_scale_shift_norm
-                    else self.out_channels,
+                    (
+                        2 * self.out_channels
+                        if use_scale_shift_norm
+                        else self.out_channels
+                    ),
                 ),
             )
 
@@ -509,6 +512,7 @@ class UNetModel(nn.Module):
 
         ch = input_ch = int(self.channel_mult[0] * self.model_channels)
         if self.input_projection:
+            breakpoint()
             self.input_blocks = nn.ModuleList(
                 [
                     TimestepEmbedSequential(
@@ -517,6 +521,7 @@ class UNetModel(nn.Module):
                 ]
             )
         else:
+            breakpoint()
             self.input_blocks = nn.ModuleList(
                 [TimestepEmbedSequential(torch.nn.Identity())]
             )
@@ -524,7 +529,9 @@ class UNetModel(nn.Module):
         input_block_chans = [ch]
         ds = 1
         for level, mult in enumerate(self.channel_mult):
+            breakpoint()
             for _ in range(self.num_res_blocks):
+                breakpoint()
                 layers = [
                     ResBlock(
                         ch,
@@ -676,7 +683,6 @@ class UNetModel(nn.Module):
 
         hs = []
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels).to(x))
-
         if self.ignore_time:
             emb = emb * 0.0
 
@@ -692,7 +698,9 @@ class UNetModel(nn.Module):
             assert (
                 y.shape == x.shape[:1]
             ), f"Labels have shape {y.shape}, which does not match the batch dimension of the input {x.shape}"
+            breakpoint()
             emb = emb + self.label_emb(y)
+            breakpoint()
 
         h = x
         if "concat_conditioning" in extra:
@@ -707,6 +715,7 @@ class UNetModel(nn.Module):
             h = module(h, emb)
         h = h.type(x.dtype)
         result = self.out(h)
+
         return result
 
 

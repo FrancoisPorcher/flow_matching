@@ -88,6 +88,24 @@ def main(args):
     )
     logger.info(str(sampler_train))
 
+    # ============= save first batch =============
+    # only on main process to avoid races
+    if distributed_mode.is_main_process():
+        # make sure target directory exists
+        save_dir = Path("/private/home/francoisporcher/flow_matching/francois/temp")
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        # pull the very first batch
+        first_batch = next(iter(data_loader_train))
+        images, labels = first_batch  # tuple of tensors
+
+        # save the full tuple, or just the images alone if you prefer:
+        torch.save(first_batch, save_dir / "first_batch.pt")
+        # torch.save(images,     save_dir / "first_batch_images.pt")
+        # torch.save(labels,     save_dir / "first_batch_labels.pt")
+
+        logger.info(f"Saved first batch to {save_dir / 'first_batch.pt'}")
+    # =============================================
     # define the model
     logger.info("Initializing Model")
     model = instantiate_model(
@@ -104,11 +122,15 @@ def main(args):
     eff_batch_size = (
         args.batch_size * args.accum_iter * distributed_mode.get_world_size()
     )
+    logger.info(f"Effective batch size: {eff_batch_size}")
 
     logger.info(f"Learning rate: {args.lr:.2e}")
 
     logger.info(f"Accumulate grad iterations: {args.accum_iter}")
     logger.info(f"Effective batch size: {eff_batch_size}")
+
+    # check if args distributed
+    print(f"Distributed training: {args.distributed}")
 
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -209,6 +231,7 @@ def main(args):
                 f.write(json.dumps(log_stats) + "\n")
 
         if args.test_run or args.eval_only:
+            # if --test_run do only one epoch
             break
 
     total_time = time.time() - start_time

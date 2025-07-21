@@ -34,7 +34,7 @@ def parse_args():
         "--ngpus", default=8, type=int, help="Number of gpus to request on each node"
     )
     parser.add_argument(
-        "--nodes", default=8, type=int, help="Number of nodes to request"
+        "--nodes", default=2, type=int, help="Number of nodes to request"
     )
     parser.add_argument("--timeout", default=4320, type=int, help="Duration of the job")
     parser.add_argument(
@@ -133,11 +133,14 @@ def main():
     if args.job_dir == "":
         args.job_dir = get_shared_folder(args.shared_dir) / "%j"
 
+    # convert job_dir to str
+    args.job_dir = str(args.job_dir)
     # Note that the folder will depend on the job_id, to easily track experiments
     executor = submitit.AutoExecutor(folder=args.job_dir, slurm_max_num_timeout=30)
 
     num_gpus_per_node = args.ngpus
     nodes = args.nodes
+    print(f"Number of nodes: {nodes}, GPUs per node: {num_gpus_per_node}")
     timeout_min = args.timeout
 
     partition = args.partition
@@ -170,7 +173,7 @@ def main():
 
     args.dist_url = get_init_file(args.shared_dir).as_uri()
     args.output_dir = args.job_dir
-
+    print(f"Output directory: {args.output_dir}")
     trainer = Trainer(args)
     job = executor.submit(trainer)
 

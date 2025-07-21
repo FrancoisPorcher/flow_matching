@@ -155,7 +155,7 @@ def get_args_parser():
     )
     parser.add_argument(
         "--eval_frequency",
-        default=50,
+        default=10,
         type=int,
         help="Frequency (in number of epochs) for running FID evaluation. -1 to never run evaluation.",
     )
